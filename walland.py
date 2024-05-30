@@ -6,10 +6,12 @@ __license__ = "MIT"
 
 from bs4 import BeautifulSoup
 
+import subprocess
 import argparse
 import requests
 import logging
 import random
+import shlex
 import time
 import sys
 import os
@@ -22,6 +24,8 @@ USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64)' + \
 DEFAULT = 'random'
 
 SOURCES = ['bing', 'unsplash', 'national-geographic', 'nasa', 'apod', 'earthobservatory', 'epod']
+
+BACKENDS = ['hyprpaper', 'swaybg', 'feh', 'swww']
 
 SOURCES_INFO = {
     'bing': {
@@ -40,14 +44,14 @@ SOURCES_INFO = {
             'attrs': {'href': re.compile(r'^https://unsplash.com/photos/'), 'title': 'Download this image'}
         },
     },
-    'national-geographic': {
-        'url': 'https://www.nationalgeographic.com/photography/photo-of-the-day/',
-        'download': '',
-        'element': {
-            'tag': 'meta',
-            'attrs': {'property': 'og:image'}
-        },
-    },
+    # 'national-geographic': { # Providing the same image since October 31, 2022, RIP :(
+    #     'url': 'https://www.nationalgeographic.com/photography/photo-of-the-day/',
+    #     'download': '',
+    #     'element': {
+    #         'tag': 'meta',
+    #         'attrs': {'property': 'og:image'}
+    #     },
+    # },
     'nasa': {
         'url': 'https://www.nasa.gov/rss/dyn/lg_image_of_the_day.rss',
         'download': '',
@@ -84,7 +88,82 @@ SOURCES_INFO = {
 
 logger = logging.getLogger('walland')
 
+
+def set_wallpaper(image_path, backend='hyprpaper', backend_args=''):
+    '''
+    Set as wallpaper the image in image_path
+    using the preferred backend.
+
+    backend_args is a string that can be used to pass
+    additional arguments to the backend of choice.
+    '''
+
+    # Check if the backend is installed
+    try:
+        if subprocess.check_output(shlex.split(f'which {backend}'), stderr=subprocess.PIPE) == b'':
+            logger.error(f'Error: {backend} is not installed. Use one of the available backends: {", ".join(BACKENDS)}')
+            sys.exit(1)
+    except subprocess.CalledProcessError:
+        logger.error(f'Error: {backend} is not installed. Use one of the available backends: {", ".join(BACKENDS)}')
+        sys.exit(1)
+
+    if backend == 'hyprpaper':
+        # Check if hyprpaper is running
+        try:
+            if subprocess.check_output(shlex.split('pgrep hyprpaper'), stderr=subprocess.PIPE) == b'':
+                # Start hyprpaper in the background
+                subprocess.Popen('hyprpaper &', shell=True).wait()
+                # Wait for hyprpaper to start
+                time.sleep(1)
+        except subprocess.CalledProcessError:
+            # Start hyprpaper in the background
+            subprocess.Popen('hyprpaper &', shell=True).wait()
+            # Wait for hyprpaper to start
+            time.sleep(1)
+
+        # Preload the image
+        subprocess.Popen(shlex.split(f'hyprctl hyprpaper preload "{image_path}"'), stdout=subprocess.PIPE).wait()
+
+        # Get the monitor names with hyprctl monitors
+        monitors = subprocess.Popen(shlex.split('hyprctl monitors'), stdout=subprocess.PIPE).communicate()[0].decode().split('\n')
+        monitors = [monitor.split('Monitor ')[1].split(' ') for monitor in monitors if 'Monitor ' in monitor]
+
+        for monitor in monitors:
+            subprocess.Popen(shlex.split(f'hyprctl hyprpaper wallpaper "{monitor[0]},{image_path}" {backend_args}'), stdout=subprocess.PIPE).wait()
+    elif backend == 'swaybg':
+        # Kill swaybg
+        subprocess.Popen(shlex.split('killall swaybg')).wait()
+
+        subprocess.Popen(shlex.split(f'swaybg -i {image_path} {backend_args}'), stdout=subprocess.PIPE)
+    elif backend == 'swww':
+        # Check that swww-daemon is running
+        try:
+            if subprocess.check_output(shlex.split('pgrep swww-daemon'), stderr=subprocess.PIPE) == b'':
+                # Start swww-daemon in the background
+                subprocess.Popen('swww-daemon &', shell=True, stdout=subprocess.PIPE).wait()
+                # Wait for swww-daemon to start
+                time.sleep(1)
+        except subprocess.CalledProcessError:
+            # Start swww-daemon in the background
+            subprocess.Popen('swww-daemon &', shell=True, stdout=subprocess.PIPE).wait()
+            # Wait for swww-daemon to start
+            time.sleep(1)
+
+        subprocess.Popen(shlex.split(f'swww img {image_path} {backend_args}'), stdout=subprocess.PIPE)
+    elif backend == 'feh':
+        subprocess.Popen(shlex.split(f'feh --bg-fill {image_path} {backend_args}'), stdout=subprocess.PIPE)
+    else:
+        logger.error(f'Error: backend {backend} not found. Use one of the available backends: {", ".join(BACKENDS)}')
+        sys.exit(1)
+
+
 def download_image(url, source, save=False):
+    '''
+    Download the image from the URL and
+    save it in the temporary directory or,
+    if save is True, in the current directory.
+    '''
+
     logger.debug(f'Image URL: {url}')
 
     response = requests.get(url, headers={'User-Agent': USER_AGENT})
@@ -104,8 +183,7 @@ def download_image(url, source, save=False):
                 element = soup.find(source_info['element']['tag'], source_info['element']['attrs'])
                 path = element['href']
 
-                download_image(path, source, save)
-                return
+                return download_image(path, source, save)
             except Exception as e:
                 logger.error(f'Error: {e}')
                 sys.exit(1)
@@ -140,32 +218,31 @@ def download_image(url, source, save=False):
 
     # If the image is not of the supported formats (png, jpg, jpeg), convert it to png
     if filename.split('.')[-1] not in ['png', 'jpg', 'jpeg']:
-        os.system(f'convert {filename} {filename.split(".")[0]}.png')
+        # Check if convert is installed
+        if subprocess.check_output('which convert', shell=True) == b'':
+            logger.error('Error: ImageMagick is required to convert images.')
+            sys.exit(1)
+
+        # Convert the image to png
+        subprocess.Popen(shlex.split(f'convert {filename} {filename}.png')).wait()
+
         # Remove the old file
         os.remove(filename)
         filename = f'{filename.split(".")[0]}.png'
 
         logger.debug(f'Converted to {filename}')
 
-    # Set as wallpaper using hyprpaper
+    return filename
 
-    # Preload the image
-    os.system(f'hyprctl hyprpaper preload "{filename}"')
-    logger.debug(f'hyprctl hyprpaper preload "{filename}"')
-
-    # Get the monitor names with hyprctl monitors
-    monitors = os.popen('hyprctl monitors').read().split('\n')
-    monitors = [monitor.split('Monitor ')[1].split(' ') for monitor in monitors if 'Monitor ' in monitor]
-    logger.debug(f'Detected monitors: {monitors}')
-
-    for monitor in monitors:
-        os.system(f'hyprctl hyprpaper wallpaper "{monitor[0]},{filename}"')
-        logger.debug(f'hyprctl hyprpaper wallpaper "{monitor[0]},{filename}"')
 
 def main():
-    parser = argparse.ArgumentParser(description='Walland sets as wallpaper the picture of the day of different sources using hyprpaper.')
+    parser = argparse.ArgumentParser(description='Walland sets as wallpaper the picture of the day of different sources using different backends.')
 
     parser.add_argument('-s', '--source', type=str, default=DEFAULT, help=f'Source of the picture of the day. Default: random. Available sources: {", ".join(SOURCES)}')
+
+    parser.add_argument('-b', '--backend', type=str, default='hyprpaper', help=f'Backend to use to set the wallpaper. Default: hyprpaper. Available backends: {", ".join(BACKENDS)}')
+
+    parser.add_argument('-a', '--backend-args', type=str, default='', help='Additional arguments to pass to the backend.')
 
     parser.add_argument('-S', '--save', action='store_true', help='Save the picture of the day in the current directory.')
 
@@ -193,6 +270,10 @@ def main():
 
     elif args.source not in SOURCES:
         logger.error(f'Error: source {args.source} not found.')
+        sys.exit(1)
+
+    if args.backend not in BACKENDS:
+        logger.error(f'Error: backend {args.backend} not found. Use one of the available backends: {", ".join(BACKENDS)}')
         sys.exit(1)
 
     source_info = SOURCES_INFO[args.source]
@@ -232,12 +313,16 @@ def main():
         path = source_info['download'].format(element['href'])
 
     elif args.source == 'earthobservatory':
+        print(element, flush=True)
         path = element['url']
 
     elif args.source == 'epod':
         path = element['src']
 
-    download_image(path, args.source, args.save)
+    image_path = download_image(path, args.source, args.save)
+
+    set_wallpaper(image_path, backend=args.backend, backend_args=args.backend_args)
+
 
 if __name__ == '__main__':
     main()
