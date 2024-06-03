@@ -27,6 +27,8 @@ SOURCES = ['bing', 'unsplash', 'national-geographic', 'nasa', 'apod', 'earthobse
 
 BACKENDS = ['hyprpaper', 'swaybg', 'feh', 'swww']
 
+SUPPORTED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp']
+
 SOURCES_INFO = {
     'bing': {
         'url': 'https://www.bing.com',
@@ -134,7 +136,7 @@ def set_wallpaper(image_path, backend='hyprpaper', backend_args=''):
         # Kill swaybg
         subprocess.Popen(shlex.split('killall swaybg')).wait()
 
-        subprocess.Popen(shlex.split(f'swaybg -i {image_path} {backend_args}'), stdout=subprocess.PIPE)
+        subprocess.Popen(shlex.split(f'swaybg --mode fill -i {image_path} {backend_args}'), stdout=subprocess.PIPE)
     elif backend == 'swww':
         # Check that swww-daemon is running
         try:
@@ -216,23 +218,31 @@ def download_image(url, source, save=False):
     with open(filename, 'wb') as f:
         f.write(response.content)
 
-    # If the image is not of the supported formats (png, jpg, jpeg), convert it to png
-    if filename.split('.')[-1] not in ['png', 'jpg', 'jpeg']:
-        # Check if convert is installed
-        if subprocess.check_output('which convert', shell=True) == b'':
-            logger.error('Error: ImageMagick is required to convert images.')
-            sys.exit(1)
-
-        # Convert the image to png
-        subprocess.Popen(shlex.split(f'convert {filename} {filename}.png')).wait()
-
-        # Remove the old file
-        os.remove(filename)
-        filename = f'{filename.split(".")[0]}.png'
-
-        logger.debug(f'Converted to {filename}')
-
     return filename
+
+
+def convert_image(image_path):
+    '''
+    Convert the image in image_path to
+    PNG format and save it in the same directory.
+    '''
+    # Check if ImageMagick is installed
+    logger.debug('Converting the image to PNG format')
+    try:
+        if subprocess.check_output(shlex.split('which magick'), stderr=subprocess.PIPE) == b'':
+            logger.error('Error: ImageMagick is not installed. Please install it to convert the image.')
+            sys.exit(1)
+    except subprocess.CalledProcessError:
+        logger.error('Error: ImageMagick is not installed. Please install it to convert the image.')
+        sys.exit(1)
+
+    filename = os.path.basename(image_path)
+    filename = '.'.join(filename.split('.')[:-1])  # Remove the extension
+
+    subprocess.Popen(shlex.split(f'magick {image_path} {filename}.png')).wait()
+
+    logger.debug(f'Image converted to {filename}.png')
+    return f'{filename}.png'
 
 
 def main():
@@ -320,6 +330,14 @@ def main():
         path = element['src']
 
     image_path = download_image(path, args.source, args.save)
+
+    # swaybg does not support webp images
+    extension = image_path.split('.')[-1]
+    if (
+        (args.backend == 'swaybg' and extension == 'webp') or
+        extension not in SUPPORTED_EXTENSIONS
+        ):
+        image_path = convert_image(image_path)
 
     set_wallpaper(image_path, backend=args.backend, backend_args=args.backend_args)
 
