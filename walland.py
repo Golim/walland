@@ -204,7 +204,7 @@ def download_image(url, source, save=False):
         filename += f'.{response.headers["content-type"].split("/")[-1]}'
 
     if save:
-        current_dir = os.path.dirname(os.path.realpath(__file__))
+        current_dir = os.getcwd()
         filename = f'{current_dir}/{filename}'
     else:
         # Save the image in a temporary directory
