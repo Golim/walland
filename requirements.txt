@@ -1,4 +1,5 @@
+beautifulsoup4
+curl_cffi
 argparse
 requests
 lxml
-bs4

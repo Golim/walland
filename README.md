@@ -21,6 +21,16 @@ sudo cp ./walland.py /usr/bin/walland
 
 ## Dependencies
 
+Install the Python dependencies with:
+
+```bash
+pip install -r requirements.txt
+```
+
+[curl_cffi](https://github.com/lexiforest/curl_cffi) because Unsplash is now fingerprinting python requests and returning 403. This library impersonates browser fingerprints to avoid this.
+
+### Backends
+
 One of the following backends:
 
 - [Hyprpaper](https://github.com/hyprwm/hyprpaper)

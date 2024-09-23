@@ -4,11 +4,11 @@ __author__ = "Matteo Golinelli"
 __copyright__ = "Copyright (C) 2023 Matteo Golinelli"
 __license__ = "MIT"
 
+from curl_cffi import requests
 from bs4 import BeautifulSoup
 
 import subprocess
 import argparse
-import requests
 import logging
 import random
 import shlex
@@ -168,14 +168,14 @@ def download_image(url, source, save=False):
 
     logger.debug(f'Image URL: {url}')
 
-    response = requests.get(url, headers={'User-Agent': USER_AGENT})
+    response = requests.get(url, headers={'User-Agent': USER_AGENT}, impersonate='chrome')
 
     if response.status_code != 200:
         # For Unsplash: sometimes the download link does not include the name of the photo
         if source == 'unsplash':
             try:
                 # Visit the URL without the /download?force=true part
-                response = requests.get(url.split('/download')[0], headers={'User-Agent': USER_AGENT})
+                response = requests.get(url.split('/download')[0], headers={'User-Agent': USER_AGENT}, impersonate='chrome')
 
                 # Get the download link
                 source_info = SOURCES_INFO[source]
@@ -291,7 +291,8 @@ def main():
     try:
         response = requests.get(
             SOURCES_INFO[args.source]['url'],
-            headers={'User-Agent': USER_AGENT}
+            headers={'User-Agent': USER_AGENT},
+            impersonate='chrome'
         )
     except Exception as e:
         logger.error(f'Error: {e}')
