@@ -31,11 +31,11 @@ SUPPORTED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp']
 
 SOURCES_INFO = {
     'bing': {
-        'url': 'https://www.bing.com',
+        'url': 'https://www.bing.com/HPImageArchive.aspx?idx=0&n=1', # https://github.com/TimothyYe/bing-wallpaper
         'download': 'https://www.bing.com{}',
         'element': {
-            'tag': 'div',
-            'attrs': {'class': 'hp_top_cover'}
+            'tag': 'urlBase',
+            'attrs': {}
         },
     },
     'unsplash': {
@@ -298,7 +298,7 @@ def main():
         logger.error(f'Error: {e}')
         sys.exit(1)
 
-    if args.source in ['nasa', 'earthobservatory']:
+    if args.source in ['nasa', 'earthobservatory', 'bing']:
         soup = BeautifulSoup(response.text, features="xml")
     else:
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -306,10 +306,10 @@ def main():
     element = soup.find(source_info['element']['tag'], source_info['element']['attrs'])
     path = ''
     if args.source == 'bing':
-        path = element['style'].split('url(')[1].split(')')[0].replace('"', '')
+        path = element.text
 
         if path.startswith('/'):
-            path = source_info['download'].format(path)
+            path = source_info['download'].format(path) + '_UHD.jpg'
 
     elif args.source == 'unsplash':
         path = element['href']
