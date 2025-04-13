@@ -1,0 +1,23 @@
+[project.scripts]
+walland = "walland:main"
+
+[project]
+name = "walland"
+version = "0.1.0"
+description = "Walland sets as wallpaper the picture of the day of different sources using different backends."
+authors = [{name = "Matteo Golinelli"}]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+beautifulsoup4 = "^4.13.3"
+curl-cffi = "^0.10.0"
+argparse = "^1.4.0"
+requests = "^2.32.3"
+lxml = "^5.3.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
