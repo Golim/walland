@@ -13,13 +13,19 @@ The sources are:
 - [Unsplash](https://unsplash.com)
 - [NASA Astronomy Picture of the Day](https://apod.nasa.gov/apod/astropix.html)
 
-## Install
+
+## Installation
+### Method 1: Pipx
+```bash
+git clone https://github.com/Golim/walland
+pipx install ./walland
+```
+
+### Method 2: Manually
 
 ```bash
 sudo cp ./walland.py /usr/bin/walland
 ```
-
-## Dependencies
 
 Install the Python dependencies with:
 
@@ -48,7 +54,7 @@ Walland sets as wallpaper the picture of the day of different sources using diff
 options:
   -h, --help            show this help message and exit
   -s SOURCE, --source SOURCE
-                        Source of the picture of the day. Default: random. Available sources: bing, unsplash, national-geographic, nasa, apod, earthobservatory, epod
+                        Source of the picture of the day. Default: random. Available sources: bing, unsplash, nasa, apod, earthobservatory, epod
   -b BACKEND, --backend BACKEND
                         Backend to use to set the wallpaper. Default: hyprpaper. Available backends: hyprpaper, swaybg, feh, swww
   -a BACKEND_ARGS, --backend-args BACKEND_ARGS
