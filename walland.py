@@ -23,7 +23,7 @@ USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64)' + \
 
 DEFAULT = 'random'
 
-SOURCES = ['bing', 'unsplash', 'national-geographic', 'nasa', 'apod', 'earthobservatory', 'epod']
+SOURCES = ['bing', 'unsplash', 'nasa', 'apod', 'earthobservatory', 'epod']  # remove national-geographic
 
 BACKENDS = ['hyprpaper', 'swaybg', 'feh', 'swww']
 
