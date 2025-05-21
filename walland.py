@@ -23,7 +23,7 @@ USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64)' + \
 
 DEFAULT = 'random'
 
-SOURCES = ['bing', 'unsplash', 'nasa', 'apod', 'earthobservatory', 'epod']  # remove national-geographic
+SOURCES = ['bing', 'unsplash', 'nasa', 'apod', 'earthobservatory', 'epod', 'national-geographic']  # removed national-geographic
 
 BACKENDS = ['hyprpaper', 'swaybg', 'feh', 'swww']
 
@@ -39,11 +39,14 @@ SOURCES_INFO = {
         },
     },
     'unsplash': {
-        'url': 'https://unsplash.com/collections/1459961/photo-of-the-day-(archive)',
+        'url': 'https://unsplash.com/t/wallpapers',
         'download': '',
         'element': {
-            'tag': 'a',
-            'attrs': {'href': re.compile(r'^https://unsplash.com/photos/'), 'title': 'Download this image'}
+            'tag': 'img',
+            'attrs': {
+                'itemprop': 'thumbnailUrl',
+                'src': re.compile(r'^(?!.*plus\.).*') # Skip images with "plus" in the URL (premium images)
+                }
         },
     },
     # 'national-geographic': { # Providing the same image since October 31, 2022, RIP :(
@@ -84,6 +87,14 @@ SOURCES_INFO = {
         'element': {
             'tag': 'img',
             'attrs': {'class': 'asset-image'}
+        },
+    },
+    'national-geographic': { # National Gepgraphic Canada
+        'url': 'https://www.natgeotv.com/me/photo-of-the-day',
+        'download': '',
+        'element': {
+            'tag': 'img',
+            'attrs': {'width': '940'}
         },
     },
 }
@@ -170,25 +181,25 @@ def download_image(url, source, save=False):
 
     response = requests.get(url, headers={'User-Agent': USER_AGENT}, impersonate='chrome')
 
-    if response.status_code != 200:
-        # For Unsplash: sometimes the download link does not include the name of the photo
-        if source == 'unsplash':
-            try:
-                # Visit the URL without the /download?force=true part
-                response = requests.get(url.split('/download')[0], headers={'User-Agent': USER_AGENT}, impersonate='chrome')
+    # if response.status_code != 200:
+    #     # For Unsplash: sometimes the download link does not include the name of the photo
+    #     if source == 'unsplash':
+    #         try:
+    #             # Visit the URL without the /download?force=true part
+    #             response = requests.get(url.split('/download')[0], headers={'User-Agent': USER_AGENT}, impersonate='chrome')
 
-                # Get the download link
-                source_info = SOURCES_INFO[source]
-                source_info['element']['attrs'] = {'href': re.compile(r'/photos/')}
+    #             # Get the download link
+    #             source_info = SOURCES_INFO[source]
+    #             source_info['element']['attrs'] = {'href': re.compile(r'/photos/')}
 
-                soup = BeautifulSoup(response.text, 'html.parser')
-                element = soup.find(source_info['element']['tag'], source_info['element']['attrs'])
-                path = element['href']
+    #             soup = BeautifulSoup(response.text, 'html.parser')
+    #             element = soup.find(source_info['element']['tag'], source_info['element']['attrs'])
+    #             path = element['href']
 
-                return download_image(path, source, save)
-            except Exception as e:
-                logger.error(f'Error: {e}')
-                sys.exit(1)
+    #             return download_image(path, source, save)
+    #         except Exception as e:
+    #             logger.error(f'Error: {e}')
+    #             sys.exit(1)
 
     # Filename is the source + the current date
     filename = f'{source}_{time.strftime("%Y-%m-%d")}'
@@ -248,7 +259,7 @@ def convert_image(image_path):
 def main():
     parser = argparse.ArgumentParser(description='Walland sets as wallpaper the picture of the day of different sources using different backends.')
 
-    parser.add_argument('-s', '--source', type=str, default=DEFAULT, help=f'Source of the picture of the day. Default: random. Available sources: {", ".join(SOURCES)}')
+    parser.add_argument('-s', '--source', type=str, default=DEFAULT, help=f'Source of the picture of the day. Default: random. Available sources: {", ".join(SOURCES)}.\n\nNational Geographic is not available anymore since October 31, 2022. The script uses the Canadian version of the website instead.\n\nUnsplash archived the Pictures of the Day, the script uses the wallpapers page instead, which is updated more than daily.')
 
     parser.add_argument('-b', '--backend', type=str, default='hyprpaper', help=f'Backend to use to set the wallpaper. Default: hyprpaper. Available backends: {", ".join(BACKENDS)}')
 
@@ -312,10 +323,10 @@ def main():
             path = source_info['download'].format(path) + '_UHD.jpg'
 
     elif args.source == 'unsplash':
-        path = element['href']
+        path = element['src']
 
     elif args.source == 'national-geographic':
-        path = element['content']
+        path = element['src']
 
     elif args.source == 'nasa':
         path = element['url']
